@@ -40,3 +40,17 @@ func (e Envelope) Validate() error {
 	}
 	return nil
 }
+
+// snapshot returns a copy of the envelope whose Payload slice is backed by
+// its own byte array, so callers cannot mutate the original bytes through
+// either copy.
+func (e Envelope) snapshot() Envelope {
+	return Envelope{
+		ID:          e.ID,
+		Type:        e.Type,
+		TenantID:    e.TenantID,
+		AggregateID: e.AggregateID,
+		OccurredAt:  e.OccurredAt,
+		Payload:     append(json.RawMessage(nil), e.Payload...),
+	}
+}

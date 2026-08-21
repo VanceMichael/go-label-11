@@ -40,12 +40,17 @@ func NewDelivery(envelope Envelope, headers map[string]string, checkpoints []str
 	}, nil
 }
 
-// Snapshot returns a value suitable for handing to another feed consumer.
+// Snapshot returns an isolated copy suitable for handing to another feed
+// consumer. The Envelope's value-typed fields (ID, Type, TenantID,
+// AggregateID, OccurredAt) are duplicated by the struct copy, while the
+// reference-typed Payload, Headers and Checkpoints are deep-copied so a
+// downstream console (or the caller) can mutate its copy without polluting
+// sibling deliveries or the retained replay copy.
 func (d Delivery) Snapshot() Delivery {
 	return Delivery{
-		Envelope:    d.Envelope,
-		Headers:     d.Headers,
-		Checkpoints: d.Checkpoints,
+		Envelope:    d.Envelope.snapshot(),
+		Headers:     copyHeaders(d.Headers),
+		Checkpoints: copyStrings(d.Checkpoints),
 	}
 }
 
@@ -70,4 +75,28 @@ func (d Delivery) TenantID() string {
 
 func (d Delivery) EventID() string {
 	return d.Envelope.ID
+}
+
+// copyHeaders returns a map backed by its own map header so that the caller
+// cannot mutate the source map through the copy (or vice versa).
+func copyHeaders(in map[string]string) map[string]string {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+// copyStrings returns a slice backed by its own array so that neither the
+// caller nor the source can mutate each other's elements.
+func copyStrings(in []string) []string {
+	if in == nil {
+		return nil
+	}
+	out := make([]string, len(in))
+	copy(out, in)
+	return out
 }
